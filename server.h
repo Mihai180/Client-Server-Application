@@ -10,10 +10,11 @@
 
 // Structura pentru reprezentarea unui client TCP
 typedef struct {
-    int sockfd;  // socket-ul TCP al clientului (-1 daca nu e conectat)              
-    char id[11];  // id-ul clientului (10 caractere + terminator de sir)
-    int subcount;  // numarul de topice la care este abonat clientul
-    char subscriptions[MAX_CLIENTS][MAX_TOPIC_LEN+1];  // lista de topic-uri la care este abonat clientul
+	int sockfd;  // socket-ul TCP al clientului (-1 daca nu e conectat)              
+	char id[11];  // id-ul clientului (10 caractere + terminator de sir)
+	int subcount;  // numarul de topicuri la care este abonat clientul
+	char subscriptions[MAX_CLIENTS][MAX_TOPIC_LEN + 1];  // lista de topic-uri la care este 
+														// abonat clientul
 } client_t;
 
 // Creaza si configureaza un socket TCP
