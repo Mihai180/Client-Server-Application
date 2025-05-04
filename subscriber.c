@@ -58,7 +58,6 @@ char *recv_msg(int sockfd) {
 
 int main(int argc, char *argv[]) {
     if (argc!=4) {  // verific argumentele
-        fprintf(stderr,"Usage: %s <ID_CLIENT> <IP_SERVER> <PORT_SERVER>\n",argv[0]);
         return EXIT_FAILURE;
     }
 

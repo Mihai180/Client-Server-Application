@@ -20,7 +20,6 @@ int setup_tcp_socket(uint16_t port) {
     // Creez socket-ul TCP
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) { 
-        perror("socket TCP");
         exit(EXIT_FAILURE); 
     }
 
@@ -36,14 +35,12 @@ int setup_tcp_socket(uint16_t port) {
 
     // Fac bind la port
     if (bind(sockfd, (struct sockaddr*)&server, sizeof(server)) < 0) {
-        perror("bind TCP");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
 
     // Pun socket-ul în mod pasiv, listen cu backlog MAX_CLIENTS
     if (listen(sockfd, MAX_CLIENTS) < 0) {
-        perror("listen");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
@@ -62,7 +59,6 @@ int setup_udp_socket(uint16_t port) {
     // Creez socket-ul UDP
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) { 
-        perror("socket UDP");
         exit(EXIT_FAILURE);
     }
 
@@ -74,7 +70,6 @@ int setup_udp_socket(uint16_t port) {
 
     // Fac bind la port
     if (bind(sockfd, (struct sockaddr*)&server, sizeof(server)) < 0) {
-        perror("bind UDP");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
@@ -106,7 +101,6 @@ void handle_new_tcp_connection(int tcp_sock, client_t clients[], int *nclients, 
     // Accept conexiunea TCP
     int newsock = accept(tcp_sock, (struct sockaddr*)&client, &len);
     if (newsock < 0) { 
-        perror("accept");
         return;
     }
 

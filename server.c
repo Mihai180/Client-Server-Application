@@ -8,7 +8,6 @@
 int main(int argc, char *argv[]) {
     // Verific argumentele primite de server
     if (argc != 2) {
-        fprintf(stderr,"Trebuie primite aceste argumente: %s <PORT>\n", argv[0]);
         return EXIT_FAILURE;
     }
     // Portul server-ului
@@ -52,7 +51,6 @@ int main(int argc, char *argv[]) {
     while(1) {
         read_fds = master; // copiez setul de file descriptori pentru select
         if (select(fdmax+1, &read_fds, NULL, NULL, NULL) < 0) {
-            perror("select"); 
             break;
         }
         
@@ -65,12 +63,14 @@ int main(int argc, char *argv[]) {
         
         // Conexiune TCP nouă
         // Acceptă conexiunea și adaugă clientul în lista de clienți
-        if (FD_ISSET(tcp_sock, &read_fds))
+        if (FD_ISSET(tcp_sock, &read_fds)) {
             handle_new_tcp_connection(tcp_sock, clients, &nclients, &master, &fdmax);
+        }
         
         // UDP primire si forward mesaje
-        if (FD_ISSET(udp_sock, &read_fds))
+        if (FD_ISSET(udp_sock, &read_fds)) {
             handle_udp_message(udp_sock, clients, nclients);
+        }
         
         // TCP mesaje de la clienți deja conectați
         for(int i = 0; i < nclients; i++) {
