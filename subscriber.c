@@ -6,76 +6,120 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <stdint.h>
+#include "server.h"
 
-#define BUFFER_SIZE 1600
-
-void disable_nagle(int sockfd) {
-    int flag = 1;
-    setsockopt(sockfd,IPPROTO_TCP,TCP_NODELAY,&flag,sizeof(flag));
-}
-
+/*
+Trimite un mesaj pe socket-ul TCP cu framing de tip:
+- 2 octeți (uint16_t) în network byte order care indică lungimea mesajului;
+- conținutul mesajului ca șir de caractere, fără '\0';
+*/
 int send_msg(int sockfd, const char *m) {
-    uint16_t l = htons(strlen(m));
-    if (send(sockfd,&l,sizeof(l),0)!=sizeof(l)) return -1;
-    if (send(sockfd,m,strlen(m),0)!= (int)strlen(m)) return -1;
+    uint16_t length = htons(strlen(m));  // lungimea mesajului
+    if (send (sockfd, &length, sizeof(length), 0) != sizeof (length)) {
+        return -1;  // eroare la trimiterea mesajului
+    }
+    if (send (sockfd, m, strlen(m), 0) != (int)strlen(m)) {
+        return -1;  // eroare la trimiterea mesajului
+    }
     return 0;
 }
 
+/*
+Primește un mesaj de tip framing TCP:
+- citește 2 octeți (uint16_t) pentru lungime în network byte order;
+- alocă buffer și primește payload-ul de lungimea indicată;
+- termină șirul cu '\0' și returnează pointerul la buffer;
+*/
 char *recv_msg(int sockfd) {
-    uint16_t l_n;
-    if (recv(sockfd,&l_n,sizeof(l_n),0)<=0) return NULL;
-    uint16_t l = ntohs(l_n);
-    if (l==0||l>BUFFER_SIZE) return NULL;
-    char *b = malloc(l+1);
-    if (!b) return NULL;
-    if (recv(sockfd,b,l,0)<=0) { free(b); return NULL; }
-    b[l]='\0';
-    return b;
+    uint16_t length;
+    if (recv (sockfd, &length, sizeof(length), 0) <= 0) {
+        return NULL;  // conexiune închisă sau eroare
+    }
+
+    uint16_t l = ntohs(length);
+    if (l == 0|| l > BUFFER_SIZE) {
+        return NULL;  // lungime invalidă
+    }
+
+    // Aloc buffer pentru payload + terminator de șir
+    char *buf = malloc (l + 1);
+    if (!buf) {  // eroare la alocare
+        return NULL;
+    }
+
+    // Citire payload
+    if (recv (sockfd, buf, l, 0) <= 0) {
+        free(buf);
+        return NULL;  // conexiune închisă sau eroare
+    }
+    buf[l]='\0';
+    return buf;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc!=4) {
+    if (argc!=4) {  // verific argumentele
         fprintf(stderr,"Usage: %s <ID_CLIENT> <IP_SERVER> <PORT_SERVER>\n",argv[0]);
         return EXIT_FAILURE;
     }
+
+    // Dezactivez buffering-ul pentru stdout
     setvbuf(stdout,NULL,_IONBF,0);
 
+    // Creare socket TCP și dezactivare Nagle
     int sockfd = socket(AF_INET,SOCK_STREAM,0);
     disable_nagle(sockfd);
 
-    struct sockaddr_in serv = {0};
-    serv.sin_family = AF_INET;
-    serv.sin_port   = htons(atoi(argv[3]));
-    inet_pton(AF_INET,argv[2],&serv.sin_addr);
-    connect(sockfd,(struct sockaddr*)&serv,sizeof(serv));
+    // Configurare adresa server și conectare
+    struct sockaddr_in server = {0};
+    server.sin_family = AF_INET;  // IPv4
+    server.sin_port   = htons(atoi(argv[3]));  // portul server-ului
+    inet_pton(AF_INET,argv[2],&server.sin_addr);  // IP-ul server-ului
+    connect(sockfd,(struct sockaddr*)&server,sizeof(server));
 
-    // trimite ID la conectare
+    // Trimit ID-ul clientului
     send_msg(sockfd, argv[1]);
 
-    fd_set master, read_fds;
+    // Pregătesc mulțimile pentru select
+    fd_set master;
+    fd_set read_fds;
     FD_ZERO(&master);
-    FD_SET(STDIN_FILENO,&master);
-    FD_SET(sockfd,&master);
+    FD_SET(STDIN_FILENO,&master);  // stdin
+    FD_SET(sockfd,&master);  // socket server
     int fdmax = sockfd;
 
     char line[BUFFER_SIZE];
     while(1) {
         read_fds = master;
-        select(fdmax+1,&read_fds,NULL,NULL,NULL);
-        if (FD_ISSET(STDIN_FILENO,&read_fds)) {
-            if (!fgets(line,sizeof(line),stdin)) break;
+        select(fdmax + 1, &read_fds, NULL, NULL, NULL);
+
+        // Verific dacă am primit date de la stdin
+        if (FD_ISSET (STDIN_FILENO, &read_fds)) {
+            if (!fgets(line, sizeof(line), stdin)) {  // EOF sau eroare
+                break;
+            }
+            // Scot newline
             line[strcspn(line,"\n")] = '\0';
-            if (!strcmp(line,"exit")) { send_msg(sockfd,"exit"); break;}
-            if (!strncmp(line,"subscribe ",10) || !strncmp(line,"unsubscribe ",12))
-                send_msg(sockfd,line);
+            if (!strcmp (line, "exit")) {  // primire exit
+                send_msg(sockfd,"exit");
+                break;
+            }
+            if (!strncmp (line, "subscribe ", 10) || !strncmp (line, "unsubscribe ", 12)) {  // comenzi subscribe/unsubscribe
+                send_msg(sockfd, line);
+            }
         }
-        if (FD_ISSET(sockfd,&read_fds)) {
+
+        // Mesaje de la server
+        if (FD_ISSET (sockfd, &read_fds)) {
             char *m = recv_msg(sockfd);
-            if (!m) break;
-            printf("%s\n",m);
+            if (!m) {  // conexiune închisă sau eroare
+                break;
+            }
+            printf("%s\n",m);  // afișez mesajul
             free(m);
         }
     }
+
+    // Închid socket
     close(sockfd);
     return 0;
 }

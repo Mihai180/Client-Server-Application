@@ -1,17 +1,15 @@
-CC      := gcc
-CFLAGS  := -Wall -Wextra -std=c11 -g
-LDFLAGS :=
-TARGETS := server subscriber
+CC := gcc
+CFLAGS := -Wall -Wextra -std=c11 -g
 
-all: $(TARGETS)
+all: server subscriber
 
 server: server.c server_utils.c
-	$(CC) $(CFLAGS) -o server server.c server_utils.c $(LDFLAGS)
+	$(CC) $(CFLAGS) -o server server.c server_utils.c
 
-subscriber: subscriber.c
-	$(CC) $(CFLAGS) -o subscriber subscriber.c $(LDFLAGS)
+subscriber: subscriber.c server_utils.c
+	$(CC) $(CFLAGS) -o subscriber subscriber.c server_utils.c
 
 clean:
-	rm -f $(TARGETS) *.o
+	rm -f server subscriber
 
 .PHONY: all clean
